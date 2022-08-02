@@ -37,13 +37,20 @@
         </ul>
     </nav>
     <section>
-        <div id="qr-helper-icon">
-            <div></div>
-            <div></div>
-            <div></div>
-            <div></div>
+        <div id="qr-outside">
+            <div id="qr-reader">
+            </div>
+            <div id="qr-helper-icon">
+                <div></div>
+                <div></div>
+                <div></div>
+                <div></div>
+            </div>
+            <div id="qr-nav">
+                <img src="./rotate-solid.svg" alt="相機轉換" onclick="toggleCamera()">
+                <img src="./gear-solid.svg" alt="相機設定">
+            </div>
         </div>
-        <div id="qr-reader"></div>
         <p class="text-danger" id="deny-warning" style="display: none;">
             未開啟相機存取權
             <br> 若已按下拒絕存取，請進入瀏覽器設定頁修改
@@ -52,15 +59,15 @@
         </p>
     </section>
     <script>
-        function openCamera() {
+        function openCamera(cameraPrimaryTypeName_str) {
             Html5Qrcode.getCameras().then(devices => {
                 /**
                  * devices would be an array of objects of type:
                  * { id: "id", label: "label" }
                  */
                 if (devices && devices.length) {
-                    alert(JSON.stringify(devices));
-                    var cameraId = devices[0].id;
+                    devicesLength = devices.length;
+                    var cameraId = chooseCamara(devices,cameraPrimaryTypeName_str);
                     // .. use this to start scanning.
                     const html5QrCode = new Html5Qrcode( /* element id */ "qr-reader");
                     html5QrCode.start(
@@ -88,20 +95,63 @@
                 $("#deny-warning").css("display", "inline");
             });
         }
-        openCamera();
+        function chooseCamara(devices,includesStr){
+            let id = devices[0].id;
+            $(devices).each((i,device)=>{
+                if(device.label){
+                    if(device.label.toLowerCase().includes(includesStr)){
+                        if(device.id) return id = device.id;
+                    }
+                }
+            })
+            return id;
+        }
+        let nowCameraType = "back";
+        let devicesLength = 0;
+        openCamera(nowCameraType);
+        function toggleCamera(){
+            if(devicesLength==1)
+                return alert("你的相機只有一個，別按了")
+            if(nowCameraType=="back")
+                nowCameraType = "front"
+            else nowCameraType = "back"
+            openCamera(nowCameraType);
+        }
     </script>
 </body>
 <style>
+    #qr-outside{
+        position: relative;
+    }
     #qr-reader {
         width: 100%;
+        position: absolute;
+    }
+
+    #qr-nav{
+        position: absolute;
+        z-index: 5;
+        width: 80px;
+        height: 40px;
+        top:3px;
+        right: 3px;
+        background-color: rgba(0, 0, 0, 0.35);
+        border-radius: 5px;
+        padding: 3px 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    #qr-nav>img{
+        width: calc(50% - 3px);
     }
     
     #qr-helper-icon {
         position: absolute;
-        width: 80vw;
-        height: 80vw;
-        max-width: 50vh;
-        max-height: 50vh;
+        width: 50vw;
+        height: 50vw;
+        /* max-width: 50%;
+        max-height: 50%; */
         left: 50%;
         top: 50%;
         transform: translate(-50%, -50%);
