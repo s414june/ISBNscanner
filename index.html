@@ -45,12 +45,12 @@
         <div id="qr-outside">
             <div id="qr-reader">
             </div>
-            <div id="qr-helper-icon">
+            <!-- <div id="qr-helper-icon">
                 <div></div>
                 <div></div>
                 <div></div>
                 <div></div>
-            </div>
+            </div> -->
             <div id="qr-nav">
                 <img src="./rotate-solid.svg" alt="相機轉換" onclick="toggleCamera()">
                 <img src="./gear-solid.svg" alt="相機設定">
@@ -102,7 +102,7 @@
                     },
                         (decodedText, decodedResult) => {
                             let bookDatas = searchISBNDetails(decodedText,(detailDatas)=>
-                            showISBNdetailsOnToast(detailDatas));
+                            showISBNdetailsOnToast(detailDatas),html5QrCode);
                             // do something when code is read
                         },
                         (errorMessage) => {
@@ -139,7 +139,10 @@
             else nowCameraType = "back"
             openCamera(nowCameraType);
         }
-        function searchISBNDetails(ISBN, callback) {
+        searchISBNDetails("978986434403100490", ()=>{
+
+        })
+        function searchISBNDetails(ISBN, callback,html5QrCode) {
             $.ajax({
                 method: "GET",
                 url: "https://openlibrary.org/api/books?bibkeys=ISBN:" + ISBN,
@@ -147,7 +150,14 @@
             })
                 .done(function (feedbackData) {
                     if(Object.keys(feedbackData).length==0){
-                        return alert("此非ISBN")
+                        if(html5QrCode){
+                            html5QrCode.pause(true);
+                        }
+                        alert("此非ISBN")
+                        if(html5QrCode){
+                            html5QrCode.resume();
+                        }
+                        return
                     }
                     return callback(feedbackData);
                 }).fail(function () {
@@ -216,7 +226,7 @@
         z-index: 5;
     }
 
-    #qr-helper-icon>div {
+    /* #qr-helper-icon>div {
         position: absolute;
         width: 50px;
         height: 50px;
@@ -251,7 +261,7 @@
         right: 0;
         border-left: none;
         border-top: none;
-    }
+    } */
 </style>
 
 </html>
