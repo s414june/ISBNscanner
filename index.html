@@ -18,9 +18,11 @@
         <nav class="navbar navbar-expand-lg bg-light">
             <div class="container-fluid">
                 <a class="navbar-brand" href="#">ISBN掃描器</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
-              </button>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+                    data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent"
+                    aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
         </nav>
     </header>
     <nav class="bg-light">
@@ -29,14 +31,17 @@
                 <a class="nav-link active" aria-current="page" href="#">掃描</a>
             </li>
             <li class="nav-item">
-                <a class="nav-link" href="#">已掃描(<span>0</span>)</a>
+                <a class="nav-link" href="#">掃描清單(<span>0</span>)</a>
             </li>
             <li class="nav-item">
-                <a class="nav-link" href="#">錯誤清單(0)</a>
+                <a class="nav-link" href="#">錯誤清單(<span>0</span>)</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#">複製ISBN</a>
             </li>
         </ul>
     </nav>
-    <section>
+    <section class="mini-page">
         <div id="qr-outside">
             <div id="qr-reader">
             </div>
@@ -58,7 +63,24 @@
             <br>以使用本工具
         </p>
     </section>
+    <!-- Flexbox container for aligning the toasts -->
+    <div aria-live="polite" aria-atomic="true" class="d-flex justify-content-center align-items-center w-100">
+        <!-- Then put toasts within -->
+        <div class="toast" role="alert" aria-live="assertive" aria-atomic="true" id="showISBNdetails">
+            <div class="toast-body">
+                <h2 class="title"></h2>
+                <h3 class="publish"></h3>
+            </div>
+        </div>
+        <div class="toast" role="alert" aria-live="assertive" aria-atomic="true" id="copyToast">
+            <div class="toast-body">
+                已複製
+            </div>
+        </div>
+    </div>
     <script>
+        const showISBNdetails_el = document.getElementById("showISBNdetails");
+        const showISBNdetails =  new bootstrap.Toast(showISBNdetails_el)
         function openCamera(cameraPrimaryTypeName_str) {
             Html5Qrcode.getCameras().then(devices => {
                 /**
@@ -67,25 +89,25 @@
                  */
                 if (devices && devices.length) {
                     devicesLength = devices.length;
-                    var cameraId = chooseCamara(devices,cameraPrimaryTypeName_str);
+                    var cameraId = chooseCamara(devices, cameraPrimaryTypeName_str);
                     // .. use this to start scanning.
                     const html5QrCode = new Html5Qrcode( /* element id */ "qr-reader");
                     html5QrCode.start(
-                            cameraId, {
-                                fps: 10, // Optional, frame per seconds for qr code scanning
-                                qrbox: {
-                                    width: 250,
-                                    height: 250
-                                } // Optional, if you want bounded box UI
-                            },
-                            (decodedText, decodedResult) => {
-                                console.log(decodedText) //取到的字串
-                                console.log(decodedResult)
-                                    // do something when code is read
-                            },
-                            (errorMessage) => {
-                                // parse error, ignore it.
-                            })
+                        cameraId, {
+                        fps: 10, // Optional, frame per seconds for qr code scanning
+                        qrbox: {
+                            width: 250,
+                            height: 250
+                        } // Optional, if you want bounded box UI
+                    },
+                        (decodedText, decodedResult) => {
+                            let bookDatas = searchISBNDetails(decodedText,(detailDatas)=>
+                            showISBNdetailsOnToast(detailDatas));
+                            // do something when code is read
+                        },
+                        (errorMessage) => {
+                            // parse error, ignore it.
+                        })
                         .catch((err) => {
                             // Start failed, handle it.
                         });
@@ -95,12 +117,12 @@
                 $("#deny-warning").css("display", "inline");
             });
         }
-        function chooseCamara(devices,includesStr){
+        function chooseCamara(devices, includesStr) {
             let id = devices[0].id;
-            $(devices).each((i,device)=>{
-                if(device.label){
-                    if(device.label.toLowerCase().includes(includesStr)){
-                        if(device.id) return id = device.id;
+            $(devices).each((i, device) => {
+                if (device.label) {
+                    if (device.label.toLowerCase().includes(includesStr)) {
+                        if (device.id) return id = device.id;
                     }
                 }
             })
@@ -109,31 +131,66 @@
         let nowCameraType = "back";
         let devicesLength = 0;
         openCamera(nowCameraType);
-        function toggleCamera(){
-            if(devicesLength==1)
+        function toggleCamera() {
+            if (devicesLength == 1)
                 return alert("你的相機只有一個，別按了")
-            if(nowCameraType=="back")
+            if (nowCameraType == "back")
                 nowCameraType = "front"
             else nowCameraType = "back"
             openCamera(nowCameraType);
         }
+        function searchISBNDetails(ISBN, callback) {
+            $.ajax({
+                method: "GET",
+                url: "https://openlibrary.org/api/books?bibkeys=ISBN:" + ISBN,
+                data: { jscmd: "details", format: "json", }
+            })
+                .done(function (feedbackData) {
+                    if(Object.keys(feedbackData).length==0){
+                        return alert("此非ISBN")
+                    }
+                    return callback(feedbackData);
+                }).fail(function () {
+                    return alert("掃描失敗")
+                })
+        }
+        function showISBNdetailsOnToast(data){
+            try {
+                let details = data["ISBN:" + 1931498717]["details"];
+                $("#showISBNdetails .title").text(details.title);
+                $("#showISBNdetails .publish").text(details.publishers);
+                showISBNdetails.show();
+            }
+            catch (e) {
+                console.error(e)
+            }
+        }
+        $(window).click(()=>{
+            showISBNdetails.hide();
+        })
     </script>
 </body>
 <style>
-    #qr-outside{
+    #showISBNdetails{
+        z-index: 6;
+        text-align: center;
         position: relative;
     }
+    #qr-outside {
+        position: relative;
+    }
+
     #qr-reader {
         width: 100%;
         position: absolute;
     }
 
-    #qr-nav{
+    #qr-nav {
         position: absolute;
         z-index: 5;
         width: 80px;
         height: 40px;
-        top:3px;
+        top: 3px;
         right: 3px;
         background-color: rgba(0, 0, 0, 0.35);
         border-radius: 5px;
@@ -142,10 +199,11 @@
         justify-content: space-between;
         align-items: center;
     }
-    #qr-nav>img{
+
+    #qr-nav>img {
         width: calc(50% - 3px);
     }
-    
+
     #qr-helper-icon {
         position: absolute;
         width: 50vw;
@@ -157,7 +215,7 @@
         transform: translate(-50%, -50%);
         z-index: 5;
     }
-    
+
     #qr-helper-icon>div {
         position: absolute;
         width: 50px;
@@ -166,28 +224,28 @@
         border: 5px solid #fff;
         border-radius: 2.5px;
     }
-    
+
     #qr-helper-icon>div:nth-child(1) {
         top: 0;
         left: 0;
         border-right: none;
         border-bottom: none;
     }
-    
+
     #qr-helper-icon>div:nth-child(2) {
         top: 0;
         right: 0;
         border-left: none;
         border-bottom: none;
     }
-    
+
     #qr-helper-icon>div:nth-child(3) {
         bottom: 0;
         left: 0;
         border-right: none;
         border-top: none;
     }
-    
+
     #qr-helper-icon>div:nth-child(4) {
         bottom: 0;
         right: 0;
