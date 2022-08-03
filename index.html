@@ -10,7 +10,9 @@
     <script src="./jquery.min.js"></script>
     <script src="./bootstrap.min.js"></script>
     <link rel="stylesheet" href="./bootstrap.min.css">
-    <title>Document</title>
+    <script src="./datatables.min.js"></script>
+    <link rel="stylesheet" href="./bootstrap.min.css">
+    <title>ISBN掃描器</title>
 </head>
 
 <body>
@@ -27,21 +29,21 @@
     </header>
     <nav class="bg-light">
         <ul class="nav nav-tabs">
-            <li class="nav-item">
+            <li class="nav-item" onclick='openThisMiniPage(this,".page1")'>
                 <a class="nav-link active" aria-current="page" href="#">掃描</a>
             </li>
-            <li class="nav-item">
-                <a class="nav-link" href="#">掃描清單(<span>0</span>)</a>
+            <li class="nav-item" onclick='openThisMiniPage(this,".page2")'>
+                <a class="nav-link" href="#" id="scanList_tab">已掃(<span>0</span>)</a>
             </li>
-            <li class="nav-item">
-                <a class="nav-link" href="#">錯誤清單(<span>0</span>)</a>
+            <li class="nav-item" onclick='openThisMiniPage(this,".page3")'>
+                <a class="nav-link" href="#">錯誤(<span>0</span>)</a>
             </li>
-            <li class="nav-item">
-                <a class="nav-link" href="#">複製ISBN</a>
+            <li class="nav-item" onclick='openThisMiniPage(this,".page4")'>
+                <a class="nav-link" href="#" onclick="alertToast.show()">複製</a>
             </li>
         </ul>
     </nav>
-    <section class="mini-page">
+    <section class="mini-page page1">
         <div id="qr-outside">
             <div id="qr-reader">
             </div>
@@ -63,6 +65,18 @@
             <br>以使用本工具
         </p>
     </section>
+    <section class="mini-page page2">
+        <table id="scanList" class="display" style="width:100%">
+            <thead>
+                <tr>
+                    <th>書名</th>
+                    <th>出版社</th>
+                    <th>掃描排序</th>
+                    <th>同出版排序</th>
+                </tr>
+            </thead>
+        </table>
+    </section>
     <!-- Flexbox container for aligning the toasts -->
     <div aria-live="polite" aria-atomic="true" class="d-flex justify-content-center align-items-center w-100">
         <!-- Then put toasts within -->
@@ -72,7 +86,7 @@
                 <h3 class="publish"></h3>
             </div>
         </div>
-        <div class="toast" role="alert" aria-live="assertive" aria-atomic="true" id="copyToast">
+        <div class="toast" role="alert" aria-live="assertive" aria-atomic="true" id="alertToast">
             <div class="toast-body">
                 已複製
             </div>
@@ -80,7 +94,12 @@
     </div>
     <script>
         const showISBNdetails_el = document.getElementById("showISBNdetails");
-        const showISBNdetails =  new bootstrap.Toast(showISBNdetails_el)
+        const showISBNdetails = new bootstrap.Toast(showISBNdetails_el)
+        const alertToast = new bootstrap.Toast(document.getElementById("alertToast"));
+        const html5QrCode = new Html5Qrcode( /* element id */ "qr-reader");
+        let scanList_json = [];
+        let publisherList = [];
+        $(".mini-page:not(.page1)").hide()
         function openCamera(cameraPrimaryTypeName_str) {
             Html5Qrcode.getCameras().then(devices => {
                 /**
@@ -91,7 +110,6 @@
                     devicesLength = devices.length;
                     var cameraId = chooseCamara(devices, cameraPrimaryTypeName_str);
                     // .. use this to start scanning.
-                    const html5QrCode = new Html5Qrcode( /* element id */ "qr-reader");
                     html5QrCode.start(
                         cameraId, {
                         fps: 10, // Optional, frame per seconds for qr code scanning
@@ -101,8 +119,8 @@
                         } // Optional, if you want bounded box UI
                     },
                         (decodedText, decodedResult) => {
-                            let bookDatas = searchISBNDetails(decodedText,(detailDatas)=>
-                            showISBNdetailsOnToast(detailDatas),html5QrCode);
+                            searchISBNDetails(decodedText, (feedbackData) => addScanList(feedbackData));
+
                             // do something when code is read
                         },
                         (errorMessage) => {
@@ -139,53 +157,84 @@
             else nowCameraType = "back"
             openCamera(nowCameraType);
         }
-        searchISBNDetails("978986434403100490", ()=>{
-
-        })
-        function searchISBNDetails(ISBN, callback,html5QrCode) {
+        function searchISBNDetails(ISBN, callback) {
             $.ajax({
                 method: "GET",
-                url: "https://openlibrary.org/api/books?bibkeys=ISBN:" + ISBN,
-                data: { jscmd: "details", format: "json", }
+                url: "https://www.googleapis.com/books/v1/volumes?q=isbn:" + ISBN,
+                data: { qt: "lang_switch", lang: "zh-tw", country: "TW", }
             })
                 .done(function (feedbackData) {
-                    if(Object.keys(feedbackData).length==0){
-                        if(html5QrCode){
-                            html5QrCode.pause(true);
-                        }
-                        alert("此非ISBN")
-                        if(html5QrCode){
-                            html5QrCode.resume();
-                        }
+                    if (Object.keys(feedbackData).length == 0) {
+                            // html5QrCode.pause(true);
+                        alert("查無此ISBN")
+                            // html5QrCode.resume();
                         return
                     }
-                    return callback(feedbackData);
+                    // html5QrCode.pause(true);
+                    callback(feedbackData);
+                    // html5QrCode.resume();
+                    return;
                 }).fail(function () {
                     return alert("掃描失敗")
                 })
         }
-        function showISBNdetailsOnToast(data){
+        function showISBNdetailsOnToast(title, publisher) {
             try {
-                let details = data["ISBN:" + 1931498717]["details"];
-                $("#showISBNdetails .title").text(details.title);
-                $("#showISBNdetails .publish").text(details.publishers);
+                $("#showISBNdetails .title").text(title);
+                $("#showISBNdetails .publish").text(publisher);
                 showISBNdetails.show();
             }
             catch (e) {
                 console.error(e)
             }
         }
-        $(window).click(()=>{
+        function addScanList(feedbackData) {
+            try {
+                let volumeInfo = feedbackData.items[0].volumeInfo;
+                let title = volumeInfo.title;
+                let publisher = volumeInfo.publisher;
+                let scanOrder = 0;
+                if (scanList_json.length == 0) scanOrder = 1;
+                else scanOrder = scanList_json[scanList_json.length - 1][2]++;
+
+                let thisBookInfo = [title, publisher, scanOrder, 1];
+                if (!publisherList.includes(publisher)) publisherList.push(publisher)
+                else thisBookInfo[3] = thisBookInfo[3]++;
+
+                scanList_json.push(thisBookInfo);
+                $('#scanList').DataTable({ data: scanList_json });
+                $("#scanList_tab>span").text(scanOrder);
+
+                showISBNdetailsOnToast(title, publisher);
+            } catch (e) {
+                console.error(e)
+            }
+        }
+        $(window).click(() => {
             showISBNdetails.hide();
+            alertToast.hide();
+            // html5QrCode.resume();
         })
+
+        // searchISBNDetails("9789864344031", (feedbackData) => addScanList(feedbackData));
+
+        function openThisMiniPage(that,pageName){
+            $(".mini-page").hide();
+            $(".mini-page"+pageName).show();
+            $(".nav-link").each((i,v)=> {
+                $(v).removeClass("active");
+            });
+            $(that).children().addClass("active");
+        }
     </script>
 </body>
 <style>
-    #showISBNdetails{
+    #showISBNdetails {
         z-index: 6;
         text-align: center;
         position: relative;
     }
+
     #qr-outside {
         position: relative;
     }
@@ -262,6 +311,16 @@
         border-left: none;
         border-top: none;
     } */
+    .dataTables_wrapper label{
+        display: flex;
+        align-items: center;
+    }
+    .dataTables_wrapper label *{
+        margin: 0 5px;
+    }
+    .dataTables_wrapper label .form-select,.dataTables_wrapper label .form-control{
+        width: auto;
+    }
 </style>
 
 </html>
