@@ -39,7 +39,7 @@
                 <a class="nav-link" href="#">錯誤(<span>0</span>)</a>
             </li>
             <li class="nav-item" onclick='openThisMiniPage(this,".page4")'>
-                <a class="nav-link" href="#" onclick="alertToast.show()">複製</a>
+                <a class="nav-link" href="#" id="copyBtn">複製</a>
             </li>
         </ul>
     </nav>
@@ -77,6 +77,9 @@
             </thead>
         </table>
     </section>
+    <section class="mini-page page4">
+        <textarea name="" id="" cols="30" rows="10"></textarea>
+    </section>
     <!-- Flexbox container for aligning the toasts -->
     <div aria-live="polite" aria-atomic="true" class="d-flex justify-content-center align-items-center w-100">
         <!-- Then put toasts within -->
@@ -99,7 +102,29 @@
         const html5QrCode = new Html5Qrcode( /* element id */ "qr-reader");
         let scanList_json = [];
         let publisherList = [];
+        let ISBNtxtList_str = "";
+        let pageTable = $('#scanList').DataTable({ data: scanList_json });
         $(".mini-page:not(.page1)").hide()
+        let lastTime = null;
+        let nextTime = null;
+        let code = '';
+        document.onkeydown = function (e) {
+            let keycode = e.keyCode || e.which || e.charCode;
+            nextTime = new Date();
+            if (keycode === 13) {
+                searchISBNDetails(code, (feedbackData) => {
+                    addScanList(feedbackData)
+                    ISBNtxtList_str += "," + code;
+                    $(".mini-page.page4 textarea").val(ISBNtxtList_str)
+                    localStorage.setItem("ISBNtxtList_str", ISBNtxtList_str);
+                });
+                code = '';
+                lastTime = null;
+                e.preventDefault();
+            } else {
+                code += String.fromCharCode(keycode);
+            }
+        }
         function openCamera(cameraPrimaryTypeName_str) {
             Html5Qrcode.getCameras().then(devices => {
                 /**
@@ -119,7 +144,12 @@
                         } // Optional, if you want bounded box UI
                     },
                         (decodedText, decodedResult) => {
-                            searchISBNDetails(decodedText, (feedbackData) => addScanList(feedbackData));
+                            searchISBNDetails(decodedText, (feedbackData) => {
+                                addScanList(feedbackData)
+                                ISBNtxtList_str += "," + decodedText;
+                                $(".mini-page.page4 textarea").val(ISBNtxtList_str)
+                                localStorage.setItem("ISBNtxtList_str", ISBNtxtList_str);
+                            });
 
                             // do something when code is read
                         },
@@ -165,9 +195,9 @@
             })
                 .done(function (feedbackData) {
                     if (Object.keys(feedbackData).length == 0) {
-                            // html5QrCode.pause(true);
+                        // html5QrCode.pause(true);
                         alert("查無此ISBN")
-                            // html5QrCode.resume();
+                        // html5QrCode.resume();
                         return
                     }
                     // html5QrCode.pause(true);
@@ -195,14 +225,17 @@
                 let publisher = volumeInfo.publisher;
                 let scanOrder = 0;
                 if (scanList_json.length == 0) scanOrder = 1;
-                else scanOrder = scanList_json[scanList_json.length - 1][2]++;
+                else {
+                    scanOrder = scanList_json.length + 1;
+                }
 
                 let thisBookInfo = [title, publisher, scanOrder, 1];
                 if (!publisherList.includes(publisher)) publisherList.push(publisher)
-                else thisBookInfo[3] = thisBookInfo[3]++;
+                else thisBookInfo[3] = scanList_json[scanList_json.length - 1][3] + 1;
 
-                scanList_json.push(thisBookInfo);
-                $('#scanList').DataTable({ data: scanList_json });
+                if (thisBookInfo.length > 0) scanList_json.push(thisBookInfo);
+
+                pageTable.clear().rows.add(scanList_json).draw();
                 $("#scanList_tab>span").text(scanOrder);
 
                 showISBNdetailsOnToast(title, publisher);
@@ -210,22 +243,45 @@
                 console.error(e)
             }
         }
-        $(window).click(() => {
+        $(window).click((e) => {
             showISBNdetails.hide();
-            alertToast.hide();
+            let focusEl = e.target;
+            console.log(focusEl.id)
+            if(focusEl.id!="copyBtn"&&focusEl.parentElement.id!="copyBtn")
+                alertToast.hide();
             // html5QrCode.resume();
         })
 
-        // searchISBNDetails("9789864344031", (feedbackData) => addScanList(feedbackData));
+        searchISBNDetails("9789864344031", (feedbackData) => {
+            addScanList(feedbackData)
+            ISBNtxtList_str += "," + "9789864344031";
+            $(".mini-page.page4 textarea").val(ISBNtxtList_str)
+            localStorage.setItem("ISBNtxtList_str", ISBNtxtList_str);
+        });
 
-        function openThisMiniPage(that,pageName){
+        // setInterval(() => {
+        //     searchISBNDetails("9789864344031", (feedbackData) => {
+        //         addScanList(feedbackData)
+        //         ISBNtxtList_str += "," + "9789864344031";
+        //         $(".mini-page.page4 textarea").val(ISBNtxtList_str)
+        //         localStorage.setItem("ISBNtxtList_str", ISBNtxtList_str);
+        //     });
+        // }, 5000);
+
+        function openThisMiniPage(that, pageName) {
             $(".mini-page").hide();
-            $(".mini-page"+pageName).show();
-            $(".nav-link").each((i,v)=> {
+            $(".mini-page" + pageName).show();
+            $(".nav-link").each((i, v) => {
                 $(v).removeClass("active");
             });
             $(that).children().addClass("active");
         }
+
+        $("#copyBtn").click((e) => {
+            $('.mini-page.page4 textarea').select();
+            document.execCommand('Copy');
+            alertToast.show();
+        })
     </script>
 </body>
 <style>
@@ -311,14 +367,17 @@
         border-left: none;
         border-top: none;
     } */
-    .dataTables_wrapper label{
+    .dataTables_wrapper label {
         display: flex;
         align-items: center;
     }
-    .dataTables_wrapper label *{
+
+    .dataTables_wrapper label * {
         margin: 0 5px;
     }
-    .dataTables_wrapper label .form-select,.dataTables_wrapper label .form-control{
+
+    .dataTables_wrapper label .form-select,
+    .dataTables_wrapper label .form-control {
         width: auto;
     }
 </style>
