@@ -53,10 +53,10 @@
                 <div></div>
                 <div></div>
             </div> -->
-            <div id="qr-nav">
+            <!-- <div id="qr-nav">
                 <img src="./rotate-solid.svg" alt="相機轉換" onclick="toggleCamera()">
                 <img src="./gear-solid.svg" alt="相機設定">
-            </div>
+            </div> -->
         </div>
         <p class="text-danger" id="deny-warning" style="display: none;">
             未開啟相機存取權
@@ -135,6 +135,9 @@
             }
         }
         function openCamera(cameraPrimaryTypeName_str) {
+            // console.log(html5QrCode)
+            // if(html5QrCode.isScanning)
+            //     html5QrCode.stop();
             Html5Qrcode.getCameras().then(devices => {
                 /**
                  * devices would be an array of objects of type:
@@ -142,10 +145,12 @@
                  */
                 if (devices && devices.length) {
                     devicesLength = devices.length;
-                    var cameraId = chooseCamara(devices, cameraPrimaryTypeName_str);
+                    // var cameraId = chooseCamara(devices, cameraPrimaryTypeName_str);
                     // .. use this to start scanning.
                     html5QrCode.start(
-                        cameraId, {
+                        { facingMode: "environment" },
+                        // cameraId,
+                         {
                         fps: 10, // Optional, frame per seconds for qr code scanning
                         qrbox: {
                             width: 250,
@@ -165,8 +170,10 @@
                         });
                 }
             }).catch(err => {
+                console.log(err)
                 // handle err
-                $("#deny-warning").css("display", "inline");
+                // $("#deny-warning").css("display", "inline");
+                alert("錯誤")
             });
         }
         function chooseCamara(devices, includesStr) {
@@ -184,12 +191,13 @@
         let devicesLength = 0;
         openCamera(nowCameraType);
         function toggleCamera() {
-            if (devicesLength == 1)
-                return alert("你的相機只有一個，別按了")
-            if (nowCameraType == "back")
-                nowCameraType = "front"
-            else nowCameraType = "back"
-            openCamera(nowCameraType);
+            // if(html5QrCode.isScanning) return;
+            // if (devicesLength == 1)
+            //     return alert("你的相機只有一個，別按了")
+            // if (nowCameraType == "back")
+            //     nowCameraType = "front"
+            // else nowCameraType = "back"
+            // openCamera(nowCameraType);
         }
         function searchISBNDetails(ISBN) {
             $.ajax({
