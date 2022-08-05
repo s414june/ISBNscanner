@@ -36,7 +36,7 @@
                 <a class="nav-link" href="#" id="scanList_tab">已掃(<span>0</span>)</a>
             </li>
             <li class="nav-item" onclick='openThisMiniPage(this,".page3")'>
-                <a class="nav-link" href="#">錯誤(<span>0</span>)</a>
+                <a class="nav-link" href="#" id="wrongList_tab">排除(<span>0</span>)</a>
             </li>
             <li class="nav-item" onclick='openThisMiniPage(this,".page4")'>
                 <a class="nav-link" href="#" id="copyBtn">複製</a>
@@ -65,14 +65,26 @@
             <br>以使用本工具
         </p>
     </section>
-    <section class="mini-page page2">
-        <table id="scanList" class="display" style="width:100%">
+    <section class="mini-page page2 p-3">
+        <table id="scanList" style="width:100%" class="table table-striped">
             <thead>
                 <tr>
                     <th>書名</th>
                     <th>出版社</th>
                     <th>掃描排序</th>
                     <th>同出版排序</th>
+                    <th></th>
+                </tr>
+            </thead>
+        </table>
+    </section>
+    <section class="mini-page page3 p-3">
+        <table id="wrongList" style="width:100%" class="table table-striped">
+            <thead>
+                <tr>
+                    <th>掃描結果</th>
+                    <th>說明</th>
+                    <th>排序</th>
                 </tr>
             </thead>
         </table>
@@ -101,9 +113,11 @@
         const alertToast = new bootstrap.Toast(document.getElementById("alertToast"));
         const html5QrCode = new Html5Qrcode( /* element id */ "qr-reader");
         let scanList_json = [];
+        let wrongList_json = [];
         let publisherList = [];
         let ISBNtxtList_str = "";
-        let pageTable = $('#scanList').DataTable({ data: scanList_json });
+        let scanPageTable = $('#scanList').DataTable({ data: scanList_json });
+        let wrongPageTable = $('#wrongList').DataTable({ data: wrongList_json });
         $(".mini-page:not(.page1)").hide()
         let lastTime = null;
         let nextTime = null;
@@ -112,12 +126,7 @@
             let keycode = e.keyCode || e.which || e.charCode;
             nextTime = new Date();
             if (keycode === 13) {
-                searchISBNDetails(code, (feedbackData) => {
-                    addScanList(feedbackData)
-                    ISBNtxtList_str += "," + code;
-                    $(".mini-page.page4 textarea").val(ISBNtxtList_str)
-                    localStorage.setItem("ISBNtxtList_str", ISBNtxtList_str);
-                });
+                searchISBNDetails(code);
                 code = '';
                 lastTime = null;
                 e.preventDefault();
@@ -144,12 +153,7 @@
                         } // Optional, if you want bounded box UI
                     },
                         (decodedText, decodedResult) => {
-                            searchISBNDetails(decodedText, (feedbackData) => {
-                                addScanList(feedbackData)
-                                ISBNtxtList_str += "," + decodedText;
-                                $(".mini-page.page4 textarea").val(ISBNtxtList_str)
-                                localStorage.setItem("ISBNtxtList_str", ISBNtxtList_str);
-                            });
+                            searchISBNDetails(decodedText);
 
                             // do something when code is read
                         },
@@ -194,15 +198,26 @@
                 data: { qt: "lang_switch", lang: "zh-tw", country: "TW", }
             })
                 .done(function (feedbackData) {
-                    if (Object.keys(feedbackData).length == 0) {
+                    if (feedbackData.totalItems != undefined) {
+                        if (feedbackData.totalItems == 0) {
+                            // html5QrCode.pause(true);
+                            alert("查無此ISBN")
+                            addWrongList(ISBN, "查無此ISBN")
+                            // html5QrCode.resume();
+                            return
+                        }
+                        else if (feedbackData.totalItems > 1) {
+                            alert("有多筆結果，請進系統判斷")
+                            addWrongList(ISBN, "多筆結果")
+                            return
+                        }
                         // html5QrCode.pause(true);
-                        alert("查無此ISBN")
+                        addScanList(feedbackData)
+                        ISBNtxtList_str += "," + "9789864344031";
+                        $(".mini-page.page4 textarea").val(ISBNtxtList_str)
+                        localStorage.setItem("ISBNtxtList_str", ISBNtxtList_str);
                         // html5QrCode.resume();
-                        return
                     }
-                    // html5QrCode.pause(true);
-                    callback(feedbackData);
-                    // html5QrCode.resume();
                     return;
                 }).fail(function () {
                     return alert("掃描失敗")
@@ -229,13 +244,13 @@
                     scanOrder = scanList_json.length + 1;
                 }
 
-                let thisBookInfo = [title, publisher, scanOrder, 1];
+                let thisBookInfo = [title, publisher, scanOrder, 1, '<img src="./trash-can-solid.svg" alt="刪除" class="delete-btn" onclick="deleteScanData(this)">'];
                 if (!publisherList.includes(publisher)) publisherList.push(publisher)
                 else thisBookInfo[3] = scanList_json[scanList_json.length - 1][3] + 1;
 
                 if (thisBookInfo.length > 0) scanList_json.push(thisBookInfo);
 
-                pageTable.clear().rows.add(scanList_json).draw();
+                scanPageTable.clear().rows.add(scanList_json).draw();
                 $("#scanList_tab>span").text(scanOrder);
 
                 showISBNdetailsOnToast(title, publisher);
@@ -246,27 +261,20 @@
         $(window).click((e) => {
             showISBNdetails.hide();
             let focusEl = e.target;
-            console.log(focusEl.id)
-            if(focusEl.id!="copyBtn"&&focusEl.parentElement.id!="copyBtn")
+            if (focusEl.id != "copyBtn" && focusEl.parentElement.id != "copyBtn")
                 alertToast.hide();
             // html5QrCode.resume();
         })
 
-        searchISBNDetails("9789864344031", (feedbackData) => {
-            addScanList(feedbackData)
-            ISBNtxtList_str += "," + "9789864344031";
-            $(".mini-page.page4 textarea").val(ISBNtxtList_str)
-            localStorage.setItem("ISBNtxtList_str", ISBNtxtList_str);
-        });
+        searchISBNDetails("9789864344031");
+        searchISBNDetails("9789864344031");
+        searchISBNDetails("9789864344031");
+        // searchISBNDetails("0079");
 
         // setInterval(() => {
-        //     searchISBNDetails("9789864344031", (feedbackData) => {
-        //         addScanList(feedbackData)
-        //         ISBNtxtList_str += "," + "9789864344031";
-        //         $(".mini-page.page4 textarea").val(ISBNtxtList_str)
-        //         localStorage.setItem("ISBNtxtList_str", ISBNtxtList_str);
-        //     });
-        // }, 5000);
+        //     searchISBNDetails("9789864344031");
+        //     searchISBNDetails("0079");
+        // }, 1000);
 
         function openThisMiniPage(that, pageName) {
             $(".mini-page").hide();
@@ -282,6 +290,28 @@
             document.execCommand('Copy');
             alertToast.show();
         })
+
+        function addWrongList(ISBN, wrongText) {
+            try {
+                let thisWrongInfo = [ISBN, wrongText, 1];
+                if (wrongList_json[wrongList_json.length - 1]) {
+                    if (wrongList_json[wrongList_json.length - 1][2] != undefined) {
+                        thisWrongInfo[2] = wrongList_json[wrongList_json.length - 1][2] + 1;
+                    }
+                }
+                wrongList_json.push(thisWrongInfo);
+
+                wrongPageTable.clear().rows.add(wrongList_json).draw();
+                $("#wrongList_tab>span").text(thisWrongInfo[2]);
+            } catch (e) {
+                console.error(e)
+            }
+        }
+        function deleteScanData(that) {
+            let thatListIndex = $(that).parent().parent().index();
+            scanList_json.splice(thatListIndex, 1);
+            scanPageTable.clear().rows.add(scanList_json).draw();
+        }
     </script>
 </body>
 <style>
@@ -367,6 +397,10 @@
         border-left: none;
         border-top: none;
     } */
+    .table {
+        white-space: nowrap;
+    }
+
     .dataTables_wrapper label {
         display: flex;
         align-items: center;
@@ -379,6 +413,10 @@
     .dataTables_wrapper label .form-select,
     .dataTables_wrapper label .form-control {
         width: auto;
+    }
+
+    .delete-btn {
+        width: 20px;
     }
 </style>
 
