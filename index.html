@@ -191,7 +191,7 @@
             else nowCameraType = "back"
             openCamera(nowCameraType);
         }
-        function searchISBNDetails(ISBN, callback) {
+        function searchISBNDetails(ISBN) {
             $.ajax({
                 method: "GET",
                 url: "https://www.googleapis.com/books/v1/volumes?q=isbn:" + ISBN,
@@ -266,9 +266,9 @@
             // html5QrCode.resume();
         })
 
-        searchISBNDetails("9789864344031");
-        searchISBNDetails("9789864344031");
-        searchISBNDetails("9789864344031");
+        // searchISBNDetails("9789864344031");
+        // searchISBNDetails("9789864344031");
+        // searchISBNDetails("9789864344031");
         // searchISBNDetails("0079");
 
         // setInterval(() => {
